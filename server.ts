@@ -592,9 +592,15 @@ async function start() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
+    const indexPath = path.join(distPath, "index.html");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+
+    app.get("/", (req, res) => {
+      res.sendFile(indexPath);
+    });
+
+    app.get(/^\/(?!api\/).*/, (req, res) => {
+      res.sendFile(indexPath);
     });
   }
 
