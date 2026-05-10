@@ -1,20 +1,47 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# CDLU Attendance System
 
-# Run and deploy your AI Studio app
+A full-stack attendance management app built with React, Vite, Express, and MongoDB.
 
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/a24c7237-a1f3-42b0-80ed-29b974a5dc7a
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
+## Local Setup
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+
+   ```bash
+   npm install
+   ```
+
+2. Create `.env` from `.env.example` and add your MongoDB Atlas URI:
+
+   ```env
+   MONGODB_URI=your_mongodb_connection_string
+   PORT=3000
+   ```
+
+3. Start the development server:
+
+   ```bash
+   npm run dev
+   ```
+
+## Production Build
+
+```bash
+npm run build
+npm start
+```
+
+## Render Settings
+
+Use these settings when creating the Render Web Service:
+
+```txt
+Build Command: npm install && npm run build
+Start Command: npm start
+```
+
+Environment variables:
+
+```txt
+NODE_ENV=production
+MONGODB_URI=your_mongodb_connection_string
+```
