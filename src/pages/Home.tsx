@@ -66,66 +66,70 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen w-full relative flex flex-col md:flex-row font-sans overflow-y-auto md:overflow-hidden bg-slate-100 dark:bg-[#0f172a] transition-colors">
+    <div className="min-h-screen w-full relative flex flex-col lg:flex-row font-sans overflow-y-auto bg-slate-100 dark:bg-[#0f172a] transition-colors">
       {/* Absolute Background Image */}
       <div 
-        className="absolute inset-0 bg-cover bg-center z-0 opacity-25 dark:opacity-100 transition-opacity"
-        style={{ backgroundImage: 'url("https://i.ibb.co/S4Tk145y/Gemini-Generated-Image-lk02t4lk02t4lk02.png")' }}
+        className="absolute inset-0 bg-cover z-0 opacity-100 transition-opacity"
+        style={{ 
+          backgroundImage: 'url("https://i.ibb.co/S4Tk145y/Gemini-Generated-Image-lk02t4lk02t4lk02.png")',
+          backgroundPosition: "center center"
+        }}
       ></div>
       
       {/* Dark overlays for blending according to the image */}
-      <div className="absolute inset-0 bg-white/65 dark:bg-slate-900/40 dark:mix-blend-multiply z-0 pointer-events-none transition-colors"></div>
-      <div className="absolute inset-0 bg-gradient-to-r from-white via-white/80 to-white/20 dark:from-[#0f172a] dark:via-[#0f172a]/50 dark:to-transparent z-0 pointer-events-none transition-colors"></div>
+      <div className="absolute inset-0 bg-white/0 dark:bg-slate-950/45 dark:mix-blend-multiply z-0 pointer-events-none transition-colors"></div>
+      <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/10 to-white/0 dark:from-[#0f172a]/95 dark:via-[#0f172a]/70 dark:to-[#0f172a]/30 lg:bg-gradient-to-r lg:from-white/62 lg:via-white/12 lg:to-white/0 lg:dark:from-[#0f172a] lg:dark:via-[#0f172a]/60 lg:dark:to-[#0f172a]/10 z-0 pointer-events-none transition-colors"></div>
       
       {/* Glow / Wave effect bottom left */}
       <div className="absolute bottom-0 left-0 w-full md:w-3/4 h-[40%] bg-gradient-to-t from-blue-500/15 dark:from-blue-500/20 to-transparent blur-3xl z-0 pointer-events-none rounded-tr-full"></div>
 
       {/* Left Content */}
-      <div className="relative z-10 w-full md:w-1/2 flex flex-col justify-center p-6 sm:p-8 md:p-16 lg:pl-24 xl:pl-32 min-h-[35vh] md:min-h-screen shrink-0">
+      <div className="relative z-10 w-full lg:w-[58%] flex flex-col justify-center px-6 py-10 sm:px-8 lg:py-12 lg:pl-20 xl:pl-28 min-h-[48vh] lg:min-h-screen shrink-0">
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
+          className="max-w-[720px]"
         >
           {/* Logo */}
-          <div className="mb-6 inline-flex items-center justify-center w-20 h-20 sm:w-28 sm:h-28 bg-white/95 backdrop-blur-sm rounded-full p-2 sm:p-2.5 border-[3px] border-[#fbbf24] shadow-2xl">
+          <div className="mb-5 inline-flex items-center justify-center w-24 h-24 sm:w-28 sm:h-28 lg:w-32 lg:h-32">
             <img 
               src="https://i.ibb.co/PZjRr6jy/cdlu-logo.webp" 
               alt="CDLU Logo" 
-              className="w-full h-full object-contain"
+              className="w-full h-full object-contain rounded-full ring-2 ring-white/80 drop-shadow-[0_10px_24px_rgba(15,23,42,0.28)]"
             />
           </div>
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-slate-950 dark:text-white tracking-tight leading-none mb-2 transition-colors">
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-slate-950 dark:text-white tracking-tight leading-none mb-2 [text-shadow:0_8px_18px_rgba(37,99,235,0.16)] dark:[text-shadow:0_0_12px_rgba(255,255,255,0.22),0_10px_22px_rgba(96,165,250,0.22)] transition-colors">
             CDLU
           </h1>
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold text-[#3b82f6] tracking-tight mb-4 sm:mb-6">
-            Department of Computer Science and Technology
+          <h2 className="max-w-2xl text-2xl sm:text-3xl lg:text-[2.25rem] font-bold text-[#1d4ed8] dark:text-[#60a5fa] tracking-tight leading-tight mb-4 sm:mb-5 [text-shadow:0_8px_18px_rgba(37,99,235,0.16)] dark:[text-shadow:0_0_12px_rgba(255,255,255,0.22),0_10px_22px_rgba(96,165,250,0.22)]">
+            Department of Computer Science<br className="hidden sm:block" /> and Technology
           </h2>
           
-          <div className="w-10 h-1 bg-[#fbbf24] mb-6 sm:mb-10 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)]"></div>
+          <div className="w-12 h-1 bg-[#fbbf24] mb-6 sm:mb-8 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)]"></div>
 
-          <h3 className="text-2xl sm:text-3xl md:text-[2.5rem] lg:text-[3.2rem] font-bold text-slate-900 dark:text-white leading-[1.15] mb-6 tracking-tight drop-shadow-sm dark:drop-shadow-lg transition-colors">
+          <h3 className="text-3xl sm:text-4xl lg:text-[2.65rem] xl:text-[2.95rem] font-bold text-slate-950 dark:text-white leading-[1.12] tracking-tight [text-shadow:0_8px_18px_rgba(37,99,235,0.16)] dark:[text-shadow:0_0_12px_rgba(255,255,255,0.22),0_10px_22px_rgba(96,165,250,0.22)] transition-colors">
             Attendance<br className="hidden sm:block" /> Management System
           </h3>
         </motion.div>
       </div>
 
       {/* Right Content - Login Card */}
-      <div className="relative z-10 w-full md:w-1/2 flex items-center justify-center p-4 sm:p-8 md:p-12 lg:pr-24 min-h-[50vh] md:min-h-screen">
+      <div className="relative z-10 w-full lg:w-[42%] flex items-center justify-center px-4 pb-8 sm:px-8 lg:min-h-screen lg:p-10 xl:pr-20">
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="w-full max-w-[480px] bg-white/95 dark:bg-slate-900/90 backdrop-blur-2xl rounded-[32px] p-8 sm:p-12 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.28)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] border border-white/80 dark:border-white/10 relative overflow-hidden flex flex-col transition-colors"
+          className="w-full max-w-[440px] bg-white/84 dark:bg-slate-900/92 backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-[0_24px_70px_-24px_rgba(15,23,42,0.45)] dark:shadow-[0_24px_70px_-24px_rgba(0,0,0,0.85)] border border-white/80 dark:border-white/10 relative overflow-hidden flex flex-col transition-colors"
         >
           <div className="flex-1 w-full flex flex-col justify-center">
             {/* Header */}
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-[#F0F4FF] dark:bg-blue-500/10 rounded-[20px] flex items-center justify-center mx-auto mb-5 text-[#2563eb] dark:text-blue-300 shadow-sm">
-                <Users className="w-8 h-8 stroke-[1.5]" />
+            <div className="text-center mb-7">
+              <div className="w-14 h-14 bg-[#F0F4FF] dark:bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 text-[#2563eb] dark:text-blue-300 shadow-sm">
+                <Users className="w-7 h-7 stroke-[1.5]" />
               </div>
-              <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight transition-colors">
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white mb-2 tracking-tight transition-colors">
                 {mode === "teacher_login"
                   ? "Staff Portal"
                   : "Register Staff"}
@@ -144,7 +148,7 @@ export default function Home() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <AnimatePresence mode="popLayout">
                 {/* Teacher Registration Fields */}
                 {mode === "teacher_register" && (
@@ -153,7 +157,7 @@ export default function Home() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="space-y-5 overflow-hidden"
+                    className="space-y-4 overflow-hidden"
                   >
                     <div className="space-y-1.5">
                       <label className="text-[14px] font-bold text-slate-800 dark:text-slate-200">
@@ -237,7 +241,7 @@ export default function Home() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="space-y-5 overflow-hidden"
+                    className="space-y-4 overflow-hidden"
                   >
                     {mode === "teacher_login" && (
                       <div className="space-y-1.5">
@@ -315,17 +319,17 @@ export default function Home() {
               </button>
             </form>
 
-            <div className="mt-8 mb-6">
+            <div className="mt-6 mb-4">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-slate-200 dark:border-white/10"></div>
                 </div>
                 <div className="relative flex justify-center text-[13px] font-medium">
-                  <span className="px-4 bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500">or</span>
+                  <span className="px-4 bg-white/80 dark:bg-slate-900 text-slate-400 dark:text-slate-500">or</span>
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-col gap-3.5">
+              <div className="mt-5 flex flex-col gap-3">
                 {mode !== "teacher_register" && (
                   <button
                     onClick={() => setMode("teacher_register")}
@@ -345,7 +349,7 @@ export default function Home() {
               </div>
             </div>
             
-            <div className="mt-auto pt-6 text-center text-[13px] text-slate-500 dark:text-slate-400 font-medium">
+            <div className="mt-auto pt-4 text-center text-[13px] text-slate-500 dark:text-slate-400 font-medium">
               <p>© {new Date().getFullYear()} CDLU Dept. of CS & Tech. All rights reserved.</p>
             </div>
           </div>

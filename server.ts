@@ -17,6 +17,19 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 let useLocalStore = true;
 
+app.use((req, res, next) => {
+  const allowedOrigin = process.env.CORS_ORIGIN || "*";
+  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  res.setHeader("Vary", "Origin");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
+
 app.use(express.json());
 
 // --- Mongoose Configuration ---
@@ -496,7 +509,7 @@ app.get("/api/attendance", async (req, res) => {
 
 app.post("/api/attendance/mark", async (req, res) => {
   try {
-    const { courseId, teacherId, date, studentStatus, metadata } = req.body;
+    const { courseId, teacherId, date, studentStatus, metadata, allowUpdate } = req.body;
 
     if (useLocalStore) {
       const db = await readLocalDb();
@@ -505,6 +518,8 @@ app.post("/api/attendance/mark", async (req, res) => {
       if (!session) {
         session = stamp({ courseId, teacherId, date, ...(metadata || {}) });
         db.sessions.push(session);
+      } else if (!allowUpdate) {
+        return res.status(409).json({ error: "Attendance Already Exists, Update Record?" });
       } else if (metadata) {
         Object.assign(session, metadata, { updatedAt: now });
       }
@@ -532,6 +547,8 @@ app.post("/api/attendance/mark", async (req, res) => {
     if (!session) {
       session = new Session({ courseId, teacherId, date, ...metadata });
       await session.save();
+    } else if (!allowUpdate) {
+      return res.status(409).json({ error: "Attendance Already Exists, Update Record?" });
     } else if (metadata) {
       await Session.findByIdAndUpdate(session._id, metadata);
     }

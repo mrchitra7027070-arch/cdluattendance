@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../lib/auth";
 import { db, Course, User, AttendanceRecord } from "../lib/db";
 import { motion, AnimatePresence } from "motion/react";
@@ -17,6 +17,7 @@ export default function TeacherDashboard() {
   const { user, login } = useAuth();
   const [activeTab, setActiveTab] = useState<"overview" | "courses" | "attendance" | "records" | "profile">("overview");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [attendanceEditTarget, setAttendanceEditTarget] = useState<{ courseId: string; date: string } | null>(null);
 
   if (!user || user.role !== "teacher") return null;
 
@@ -32,7 +33,7 @@ export default function TeacherDashboard() {
         </div>
         <button 
           onClick={() => setIsSidebarOpen(true)}
-          className="p-2 rounded-xl bg-slate-100 dark:bg-slate-300 dark:bg-slate-800 text-slate-600 dark:text-slate-600 dark:text-slate-300"
+          className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
         >
           <Users className="w-5 h-5" />
         </button>
@@ -77,7 +78,7 @@ export default function TeacherDashboard() {
               </div>
 
               <div className="absolute bottom-6 left-6 right-6">
-                <div className="bg-slate-50 dark:bg-slate-300 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-black/5 dark:border-white/5">
+                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-white/5">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-black">{user.name.charAt(0)}</div>
                     <div className="overflow-hidden">
@@ -112,7 +113,7 @@ export default function TeacherDashboard() {
               {user.name.charAt(0)}
             </div>
             <div className="overflow-hidden">
-              <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">Authenticated as</p>
+              <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none mb-1">Authenticated as</p>
               <p className="text-sm font-black text-slate-900 dark:text-white truncate tracking-tight">{user.name}</p>
             </div>
           </div>
@@ -138,11 +139,11 @@ export default function TeacherDashboard() {
 
         {/* Footer info */}
         <div className="mt-auto px-2">
-           <div className="bg-slate-50 dark:bg-slate-300 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-black/5 dark:border-white/5">
-              <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">System Status</p>
+           <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-white/5">
+              <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">System Status</p>
               <div className="flex items-center gap-2">
                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                 <span className="text-xs font-bold text-slate-600 dark:text-slate-600 dark:text-slate-300">Live & Syncing</span>
+                 <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Live & Syncing</span>
               </div>
            </div>
         </div>
@@ -162,8 +163,8 @@ export default function TeacherDashboard() {
         <AnimatePresence mode="wait">
           {activeTab === "overview" && <OverviewTab key="overview" teacherId={user.id} />}
           {activeTab === "courses" && <CoursesTab key="courses" teacherId={user.id} />}
-          {activeTab === "attendance" && <AttendanceTab key="attendance" teacherId={user.id} />}
-          {activeTab === "records" && <AttendanceRecordsTab key="records" teacherId={user.id} />}
+          {activeTab === "attendance" && <AttendanceTab key="attendance" teacherId={user.id} editTarget={attendanceEditTarget} onEditTargetConsumed={() => setAttendanceEditTarget(null)} />}
+          {activeTab === "records" && <AttendanceRecordsTab key="records" teacherId={user.id} onEditSession={(courseId, date) => { setAttendanceEditTarget({ courseId, date }); setActiveTab("attendance"); }} />}
           {activeTab === "profile" && <ProfileTab key="profile" user={user} />}
         </AnimatePresence>
       </main>
@@ -270,7 +271,7 @@ function OverviewTab({ teacherId }: { teacherId: string; key?: string }) {
       </div>
 
       <div className="grid grid-cols-1 gap-6">
-        <div className="bg-white dark:bg-slate-300 dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-black/5 dark:border-white/10 shadow-sm">
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm">
            <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4">Attendance Mix</h3>
            <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
@@ -418,25 +419,25 @@ function CoursesTab({ teacherId }: { teacherId: string; key?: string }) {
       <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <button onClick={() => setManagingCourseId(null)} className="text-slate-500 dark:text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white flex items-center gap-1 mb-2 text-sm font-medium transition-colors">
+            <button onClick={() => setManagingCourseId(null)} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white flex items-center gap-1 mb-2 text-sm font-medium transition-colors">
               <ChevronRight className="w-4 h-4 rotate-180" /> Back to Courses
             </button>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Manage "{course.name}"</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-500 dark:text-slate-400">Add or edit students using their Roll Number.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Add or edit students using their Roll Number.</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1">
-            <form onSubmit={handleAddOrUpdateStudent} className="bg-slate-50 dark:bg-slate-300 dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-black/5 dark:border-white/10 space-y-4 relative">
+            <form onSubmit={handleAddOrUpdateStudent} className="bg-slate-50 dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-white/10 space-y-4 relative">
               {editingStudentId && (
-                <button type="button" onClick={handleCancelEdit} className="absolute right-4 top-4 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-900 dark:text-white">
+                <button type="button" onClick={handleCancelEdit} className="absolute right-4 top-4 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:text-white dark:hover:text-white">
                   <X className="w-4 h-4" />
                 </button>
               )}
               <h3 className="font-semibold text-slate-900 dark:text-white mb-2">{editingStudentId ? "Update Student" : "Add Student"}</h3>
               <div>
-                <label className="text-xs font-bold text-slate-500 dark:text-slate-500 dark:text-slate-400 mb-1 block">Roll Number</label>
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 block">Roll Number</label>
                 <input 
                   required 
                   type="text" 
@@ -452,7 +453,7 @@ function CoursesTab({ teacherId }: { teacherId: string; key?: string }) {
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 dark:text-slate-500 dark:text-slate-400 mb-1 block">Full Name</label>
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 block">Full Name</label>
                 <input 
                   required 
                   type="text" 
@@ -471,16 +472,16 @@ function CoursesTab({ teacherId }: { teacherId: string; key?: string }) {
           
           <div className="md:col-span-2">
             <div className="bg-white dark:bg-[#1e293b] rounded-2xl border border-slate-200 dark:border-white/10 overflow-hidden shadow-sm">
-               <div className="p-4 border-b border-black/5 dark:border-black/5 dark:border-white/10">
+               <div className="p-4 border-b border-black/5 dark:border-white/10">
                  <h3 className="font-semibold text-slate-900 dark:text-white">Enrolled Students ({enrolledStudents.length})</h3>
                </div>
                <div className="max-h-[300px] overflow-y-auto">
                  {enrolledStudents.length === 0 ? (
-                    <div className="p-8 text-center text-slate-500 dark:text-slate-500 dark:text-slate-400 text-sm">No students added yet.</div>
+                    <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-sm">No students added yet.</div>
                  ) : (
                     <table className="w-full text-left text-sm">
                       <thead>
-                        <tr className="bg-slate-100 dark:bg-slate-300 dark:bg-slate-800 border-b border-slate-200 dark:border-black/5 dark:border-white/10 text-slate-700 dark:text-slate-600 dark:text-slate-300 text-xs">
+                        <tr className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 text-xs">
                           <th className="px-4 py-3 font-bold uppercase tracking-wider">Roll No</th>
                           <th className="px-4 py-3 font-bold uppercase tracking-wider">Name</th>
                           <th className="px-4 py-3 font-bold uppercase tracking-wider text-right">Actions</th>
@@ -488,8 +489,8 @@ function CoursesTab({ teacherId }: { teacherId: string; key?: string }) {
                       </thead>
                       <tbody>
                         {enrolledStudents.map(student => (
-                          <tr key={student.id} className="border-b border-black/5 dark:border-black/5 dark:border-white/5 hover:bg-white/90 dark:hover:bg-white/80 dark:bg-white/5 transition-colors">
-                            <td className="px-4 py-3 font-mono text-slate-600 dark:text-slate-600 dark:text-slate-300">{student.rollNumber}</td>
+                          <tr key={student.id} className="border-b border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/10 dark:bg-white/5 transition-colors">
+                            <td className="px-4 py-3 font-mono text-slate-600 dark:text-slate-300">{student.rollNumber}</td>
                             <td className="px-4 py-3 text-slate-900 dark:text-white">{student.name}</td>
                             <td className="px-4 py-3 text-right">
                               <button onClick={() => handleEditClick(student)} className="bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-500/20 dark:text-blue-400 dark:hover:bg-blue-500/30 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors mr-2">
@@ -523,29 +524,29 @@ function CoursesTab({ teacherId }: { teacherId: string; key?: string }) {
       </div>
 
       {isCreating && (
-        <form onSubmit={handleCreateOrUpdateCourse} className="bg-slate-50 dark:bg-slate-300 dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-black/5 dark:border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-4 relative shadow-sm">
+        <form onSubmit={handleCreateOrUpdateCourse} className="bg-slate-50 dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-4 relative shadow-sm">
           <h3 className="sm:col-span-2 font-bold text-slate-900 dark:text-white text-lg">{editingCourseId ? "Update Course" : "Create New Course"}</h3>
           <div>
-            <label className="text-xs font-bold text-slate-500 dark:text-slate-500 dark:text-slate-400 mb-1 block">Course Name</label>
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 block">Course Name</label>
             <input required type="text" value={newCourse.name} onChange={e => setNewCourse({...newCourse, name: e.target.value})} className="w-full bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-white/20 rounded-lg p-2.5 text-slate-900 dark:text-white outline-none focus:border-blue-500" placeholder="e.g. MCA, B.Tech" />
           </div>
           <div>
-            <label className="text-xs font-bold text-slate-500 dark:text-slate-500 dark:text-slate-400 mb-1 block">Semester</label>
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 block">Semester</label>
             <input required type="text" value={newCourse.semester} onChange={e => setNewCourse({...newCourse, semester: e.target.value})} className="w-full bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-white/20 rounded-lg p-2.5 text-slate-900 dark:text-white outline-none focus:border-blue-500" placeholder="e.g. 3rd" />
           </div>
           <div>
-            <label className="text-xs font-bold text-slate-500 dark:text-slate-500 dark:text-slate-400 mb-1 block">Year</label>
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 block">Year</label>
             <input required type="text" value={newCourse.year} onChange={e => setNewCourse({...newCourse, year: e.target.value})} className="w-full bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-white/20 rounded-lg p-2.5 text-slate-900 dark:text-white outline-none focus:border-blue-500" placeholder={new Date().getFullYear().toString()} />
           </div>
           <div>
-            <label className="text-xs font-bold text-slate-500 dark:text-slate-500 dark:text-slate-400 mb-1 block">Subject / Section</label>
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 block">Subject / Section</label>
             <input required type="text" value={newCourse.section} onChange={e => setNewCourse({...newCourse, section: e.target.value})} className="w-full bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-white/20 rounded-lg p-2.5 text-slate-900 dark:text-white outline-none focus:border-blue-500" placeholder="e.g. Data Structures" />
           </div>
           <div className="sm:col-span-2 mt-4 flex gap-3">
             <button type="submit" className="bg-blue-600 hover:bg-blue-700 py-3 px-8 rounded-xl text-sm text-white font-bold transition-all shadow-lg shadow-blue-500/25">
               {editingCourseId ? "Update Course" : "Save Course"}
             </button>
-            <button type="button" onClick={handleCancelCourseForm} className="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 py-3 px-8 rounded-xl text-sm text-slate-700 dark:text-slate-700 dark:text-slate-200 font-bold transition-all">
+            <button type="button" onClick={handleCancelCourseForm} className="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 py-3 px-8 rounded-xl text-sm text-slate-700 dark:text-slate-200 font-bold transition-all">
               Cancel
             </button>
           </div>
@@ -554,7 +555,7 @@ function CoursesTab({ teacherId }: { teacherId: string; key?: string }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {courses.map(course => (
-          <div key={course.id} className="bg-white dark:bg-slate-300 dark:bg-slate-800 border border-slate-200 dark:border-black/5 dark:border-white/10 p-5 rounded-xl hover:shadow-md transition-all group cursor-default relative">
+          <div key={course.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 p-5 rounded-xl hover:shadow-md transition-all group cursor-default relative">
             <div className="absolute top-4 right-4 flex gap-2">
               <button onClick={() => handleEditCourseClick(course)} className="bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-500/20 dark:text-blue-400 dark:hover:bg-blue-500/30 px-3 py-1.5 rounded-md text-xs font-bold transition-colors">
                 Edit
@@ -564,13 +565,13 @@ function CoursesTab({ teacherId }: { teacherId: string; key?: string }) {
               </button>
             </div>
             <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2 pr-16">{course.name}</h3>
-            <div className="text-sm text-slate-600 dark:text-slate-500 dark:text-slate-400 space-y-1">
-              <p>Semester: <span className="text-slate-900 dark:text-slate-700 dark:text-slate-200 font-medium">{course.semester}</span></p>
-              <p>Year: <span className="text-slate-900 dark:text-slate-700 dark:text-slate-200 font-medium">{course.year}</span></p>
-              <p>Subject: <span className="text-slate-900 dark:text-slate-700 dark:text-slate-200 font-medium">{course.section}</span></p>
+            <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
+              <p>Semester: <span className="text-slate-900 dark:text-slate-200 font-medium">{course.semester}</span></p>
+              <p>Year: <span className="text-slate-900 dark:text-slate-200 font-medium">{course.year}</span></p>
+              <p>Subject: <span className="text-slate-900 dark:text-slate-200 font-medium">{course.section}</span></p>
             </div>
-            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-black/5 dark:border-white/10 flex justify-between items-center text-xs">
-              <span className="text-slate-500 dark:text-slate-500 dark:text-slate-400 font-medium">Synced Records</span>
+            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/10 flex justify-between items-center text-xs">
+              <span className="text-slate-500 dark:text-slate-400 font-medium">Synced Records</span>
               <button onClick={() => setManagingCourseId(course.id)} className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-bold flex items-center gap-1 hover:underline cursor-pointer">Manage <ChevronRight className="w-3 h-3" /></button>
             </div>
           </div>
@@ -582,7 +583,7 @@ function CoursesTab({ teacherId }: { teacherId: string; key?: string }) {
 }
 
 // ---------------- ATTENDANCE TAB ----------------
-function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
+function AttendanceTab({ teacherId, editTarget, onEditTargetConsumed }: { teacherId: string; key?: string; editTarget?: { courseId: string; date: string } | null; onEditTargetConsumed?: () => void }) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [date, setDate] = useState<string>(new Date().toISOString().split("T")[0]);
@@ -599,6 +600,15 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!showPreview) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showPreview]);
+
+  useEffect(() => {
     async function loadInitialData() {
       const teacherCourses = await db.getCoursesByTeacher(teacherId);
       setCourses(teacherCourses);
@@ -606,6 +616,14 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
     }
     loadInitialData();
   }, [teacherId]);
+
+  useEffect(() => {
+    if (editTarget) {
+      setSelectedCourseId(editTarget.courseId);
+      setDate(editTarget.date);
+      onEditTargetConsumed?.();
+    }
+  }, [editTarget, onEditTargetConsumed]);
 
   useEffect(() => {
     async function loadAttendance() {
@@ -648,6 +666,13 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
     setIsSaved(false);
   };
 
+  const markFilteredStudents = (status: "P" | "A" | "L") => {
+    const newAtt = { ...attendance };
+    filteredStudents.forEach(s => { newAtt[s.id] = status; });
+    setAttendance(newAtt);
+    setIsSaved(false);
+  };
+
   const handleSave = async () => {
     if (!selectedCourseId) return;
 
@@ -671,14 +696,30 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
       return;
     }
 
-    await db.markAttendance(
-      selectedCourseId, 
-      teacherId, 
-      date, 
-      studentStatus, 
-      { startTime, endTime, roomNo }
-    );
+    const existingForDate = await db.getAttendanceByCourseAndDate(selectedCourseId, date);
+    const allowUpdate = existingForDate.length > 0;
+    if (allowUpdate && !window.confirm("Attendance Already Exists, Update Record?")) {
+      return;
+    }
+
+    try {
+      await db.markAttendance(
+        selectedCourseId, 
+        teacherId, 
+        date, 
+        studentStatus, 
+        { startTime, endTime, roomNo },
+        allowUpdate
+      );
+    } catch (err: any) {
+      if (err.message?.includes("Attendance Already Exists")) {
+        alert("Attendance Already Exists, Update Record?");
+        return;
+      }
+      throw err;
+    }
     setIsSaved(true);
+    window.dispatchEvent(new CustomEvent("attendance-updated", { detail: { courseId: selectedCourseId } }));
     // Keep modal open for a moment to show success, then close
     setTimeout(() => {
       setShowPreview(false);
@@ -752,6 +793,14 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
     });
   };
 
+  const openAttendanceSummary = () => {
+    if (students.length === 0) {
+      alert("No students available for attendance summary.");
+      return;
+    }
+    setShowPreview(true);
+  };
+
   const selectedCourse = courses.find(c => c.id === selectedCourseId);
   const filteredStudents = students.filter(s => 
     s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -767,15 +816,15 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
             <button 
               key={`attendance-course-${course.id}`} 
               onClick={() => setSelectedCourseId(course.id)} 
-              className="text-left bg-white dark:bg-slate-300 dark:bg-slate-800 border border-slate-200 dark:border-black/5 dark:border-white/10 p-5 rounded-2xl hover:shadow-lg transition-all group cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              className="text-left bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 p-5 rounded-2xl hover:shadow-lg transition-all group cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
             >
               <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{course.name}</h3>
-              <div className="text-sm text-slate-600 dark:text-slate-500 dark:text-slate-400 space-y-1">
-                <p>Semester: <span className="text-slate-900 dark:text-slate-700 dark:text-slate-200 font-medium">{course.semester}</span></p>
-                <p>Subject: <span className="text-slate-900 dark:text-slate-700 dark:text-slate-200 font-medium">{course.section}</span></p>
+              <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
+                <p>Semester: <span className="text-slate-900 dark:text-slate-200 font-medium">{course.semester}</span></p>
+                <p>Subject: <span className="text-slate-900 dark:text-slate-200 font-medium">{course.section}</span></p>
               </div>
-              <div className="mt-4 pt-4 border-t border-slate-100 dark:border-black/5 dark:border-white/10 flex justify-between items-center text-xs">
-                <span className="text-slate-500 dark:text-slate-500 dark:text-slate-400 font-medium tracking-tight">Active Subject</span>
+              <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/10 flex justify-between items-center text-xs">
+                <span className="text-slate-500 dark:text-slate-400 font-medium tracking-tight">Active Subject</span>
                 <span className="text-blue-600 dark:text-blue-400 flex items-center gap-1 font-bold group-hover:translate-x-1 transition-transform">Mark <ChevronRight className="w-3 h-3" /></span>
               </div>
             </button>
@@ -791,15 +840,15 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
       {/* Top Header Section */}
       <div className="bg-slate-50 dark:bg-[#1e293b]/90 backdrop-blur-xl border-b border-slate-200 dark:border-white/10 p-4 sm:p-6 sticky top-0 z-20">
         <div className="flex items-center gap-2 mb-4">
-          <button onClick={() => setSelectedCourseId(null)} className="text-slate-500 dark:text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/60 dark:bg-white/10 transition-colors">
+          <button onClick={() => setSelectedCourseId(null)} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:text-white p-1 rounded-full hover:bg-black/5 dark:bg-white/10 dark:hover:bg-white/10 transition-colors">
             <ChevronRight className="w-5 h-5 rotate-180" />
           </button>
           <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white truncate">{selectedCourse?.name}</h2>
         </div>
         
         <div className="grid grid-cols-2 md:flex md:flex-wrap gap-3 sm:gap-4 text-sm mb-4">
-          <div className="bg-slate-100 dark:bg-slate-300 dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-black/5 dark:border-white/5">
-            <p className="text-slate-500 dark:text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Semester</p>
+          <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-white/5">
+            <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Semester</p>
             <p className="text-slate-900 dark:text-white font-bold">{selectedCourse?.semester}</p>
           </div>
           <div className="bg-emerald-50 dark:bg-emerald-500/10 rounded-xl p-3 border border-emerald-100 dark:border-emerald-500/20">
@@ -808,8 +857,8 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
               {students.filter(s => attendance[s.id]).length} / {students.length}
             </p>
           </div>
-          <div className="col-span-1 md:col-auto bg-slate-100 dark:bg-slate-300 dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-black/5 dark:border-white/5">
-              <p className="text-slate-500 dark:text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Date</p>
+          <div className="col-span-1 md:col-auto bg-slate-100 dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-white/5">
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Date</p>
               <div className="relative">
                 <input 
                   type="date" 
@@ -819,8 +868,8 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
                 />
               </div>
           </div>
-          <div className="col-span-1 md:col-auto bg-slate-100 dark:bg-slate-300 dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-black/5 dark:border-white/5 flex flex-col justify-center">
-              <p className="text-slate-500 dark:text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1 leading-none">Start Time</p>
+          <div className="col-span-1 md:col-auto bg-slate-100 dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-white/5 flex flex-col justify-center">
+              <p className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1 leading-none">Start Time</p>
               <input 
                 type="time"
                 value={startTime}
@@ -828,8 +877,8 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
                 className="bg-transparent text-slate-900 dark:text-white font-bold outline-none w-full text-sm sm:text-base cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
               />
           </div>
-          <div className="col-span-1 md:col-auto bg-slate-100 dark:bg-slate-300 dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-black/5 dark:border-white/5 flex flex-col justify-center">
-              <p className="text-slate-500 dark:text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1 leading-none">End Time</p>
+          <div className="col-span-1 md:col-auto bg-slate-100 dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-white/5 flex flex-col justify-center">
+              <p className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1 leading-none">End Time</p>
               <input 
                 type="time"
                 value={endTime}
@@ -837,8 +886,8 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
                 className="bg-transparent text-slate-900 dark:text-white font-bold outline-none w-full text-sm sm:text-base cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
               />
           </div>
-          <div className="col-span-1 md:col-auto bg-slate-100 dark:bg-slate-300 dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-black/5 dark:border-white/5 flex flex-col justify-center">
-              <p className="text-slate-500 dark:text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1 leading-none">Room No</p>
+          <div className="col-span-1 md:col-auto bg-slate-100 dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-white/5 flex flex-col justify-center">
+              <p className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1 leading-none">Room No</p>
               <input 
                 type="text"
                 placeholder="Room / Lab"
@@ -852,7 +901,7 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="w-4 h-4 text-slate-500 dark:text-slate-500 dark:text-slate-400" />
+              <Search className="w-4 h-4 text-slate-500 dark:text-slate-400" />
             </div>
             <input 
               type="text" 
@@ -864,35 +913,25 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
           </div>
           <div className="flex gap-2">
             <button 
-              onClick={() => {
-                const newAtt = { ...attendance };
-                filteredStudents.forEach(s => { newAtt[s.id] = "P"; });
-                setAttendance(newAtt);
-                setIsSaved(false);
-              }}
-              className="px-6 py-2 bg-[#e5ecff] text-blue-900 text-xs font-black rounded-xl hover:bg-[#d7e2ff] transition-all active:scale-95"
+              onClick={() => markFilteredStudents("P")}
+              className="px-4 sm:px-5 py-2 bg-emerald-600 text-white text-xs font-black rounded-xl hover:bg-emerald-500 transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
             >
-              Mark All P
+              Mark All Present
             </button>
             <button 
-              onClick={() => {
-                const newAtt = { ...attendance };
-                filteredStudents.forEach(s => { newAtt[s.id] = null; });
-                setAttendance(newAtt);
-                setIsSaved(false);
-              }}
-              className="px-6 py-2 bg-slate-200 dark:bg-slate-300 dark:bg-slate-800 text-slate-600 dark:text-slate-600 dark:text-slate-300 text-xs font-black rounded-xl hover:bg-slate-300 dark:hover:bg-slate-700 transition-all active:scale-95"
+              onClick={() => markFilteredStudents("A")}
+              className="px-4 sm:px-5 py-2 bg-rose-600 text-white text-xs font-black rounded-xl hover:bg-rose-500 transition-all active:scale-95 shadow-lg shadow-rose-500/20"
             >
-              Reset All
+              Mark All Absent
             </button>
           </div>
         </div>
       </div>
 
       {/* Student List */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24">
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-6">
         {students.length === 0 ? (
-          <div className="py-12 text-center text-slate-500 dark:text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-white/80 dark:bg-white/5 rounded-xl border border-black/5 dark:border-black/5 dark:border-white/10">
+          <div className="py-12 text-center text-slate-500 dark:text-slate-400 bg-white/90 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10">
             No students enrolled. Go to "Courses" to manage enrollments.
           </div>
         ) : filteredStudents.length === 0 ? (
@@ -900,17 +939,17 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
         ) : (
           <div className="space-y-3">
             {filteredStudents.map((student) => (
-              <div key={student.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/80 dark:bg-white/80 dark:bg-white/5 border border-black/5 dark:border-black/5 dark:border-white/10 p-3 sm:px-4 rounded-xl hover:bg-white/90 dark:hover:bg-white/60 dark:bg-white/10 transition-colors">
+              <div key={student.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 p-3 sm:px-4 rounded-xl shadow-sm hover:bg-slate-50 dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 transition-colors">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center font-bold text-blue-300 border border-black/5 dark:border-black/5 dark:border-white/5 shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-violet-100 flex items-center justify-center font-bold text-blue-600 border border-slate-200 dark:from-blue-500/20 dark:to-purple-500/20 dark:text-blue-300 dark:border-white/5 shrink-0">
                     {student.name.charAt(0)}
                   </div>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1">
-                    <h4 className="text-slate-900 dark:text-white font-bold text-sm sm:text-base leading-tight">{student.name}</h4>
+                    <h4 className="text-slate-950 dark:text-white font-bold text-sm sm:text-base leading-tight">{student.name}</h4>
                     <div className="flex items-center gap-2">
-                      <p className="text-slate-500 dark:text-slate-500 dark:text-slate-400 font-mono text-[10px] sm:text-xs">{student.rollNumber || "No Roll"}</p>
+                      <p className="text-slate-500 dark:text-slate-400 font-mono text-[10px] sm:text-xs">{student.rollNumber || "No Roll"}</p>
                       {!attendance[student.id] && (
-                        <span className="text-[9px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-black/5 dark:border-white/5 animate-pulse">Unmarked</span>
+                        <span className="text-[9px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-white/5 animate-pulse">Unmarked</span>
                       )}
                     </div>
                   </div>
@@ -921,16 +960,16 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
                     onClick={() => mark(student.id, "P")} 
                     className={`flex-1 sm:flex-none h-9 sm:h-10 px-4 sm:px-5 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 active:scale-95 ${
                       attendance[student.id] === 'P' 
-                      ? 'bg-emerald-600 text-slate-900 dark:text-white shadow-lg shadow-emerald-500/40 ring-2 ring-emerald-500/50' 
-                      : 'bg-slate-100 dark:bg-slate-300 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:bg-emerald-50 hover:text-emerald-600'
+                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/40 ring-2 ring-emerald-500/50' 
+                      : 'bg-slate-100 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 dark:bg-slate-800/50 dark:text-slate-400'
                     }`}
                   >P</button>
                   <button 
                     onClick={() => mark(student.id, "A")} 
                     className={`flex-1 sm:flex-none h-9 sm:h-10 px-4 sm:px-5 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 active:scale-95 ${
                       attendance[student.id] === 'A' 
-                      ? 'bg-rose-600 text-slate-900 dark:text-white shadow-lg shadow-rose-500/40 ring-2 ring-rose-500/50' 
-                      : 'bg-slate-100 dark:bg-slate-300 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:bg-rose-50 hover:text-rose-600'
+                      ? 'bg-rose-600 text-white shadow-lg shadow-rose-500/40 ring-2 ring-rose-500/50' 
+                      : 'bg-slate-100 text-slate-500 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800/50 dark:text-slate-400'
                     }`}
                   >A</button>
                   <button 
@@ -938,7 +977,7 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
                     className={`flex-1 sm:flex-none h-9 sm:h-10 px-4 sm:px-5 rounded-xl text-xs sm:text-sm font-black transition-all duration-200 active:scale-95 ${
                       attendance[student.id] === 'L' 
                       ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/40 ring-2 ring-amber-500/50' 
-                      : 'bg-slate-100 dark:bg-slate-300 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:bg-amber-50 hover:text-amber-600'
+                      : 'bg-slate-100 text-slate-500 hover:bg-amber-50 hover:text-amber-600 dark:bg-slate-800/50 dark:text-slate-400'
                     }`}
                   >L</button>
                 </div>
@@ -950,9 +989,10 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
 
       {/* Floating Action / Save Button */}
       {students.length > 0 && (
-        <div className="fixed sm:static bottom-20 sm:bottom-auto left-4 right-4 sm:mt-auto sm:border-t sm:border-black/5 dark:border-black/5 dark:border-white/10 p-4 sm:p-4 bg-slate-100/95 dark:bg-slate-100/95 dark:bg-[#0f172a]/95 sm:bg-transparent backdrop-blur-xl border border-black/5 dark:border-black/5 dark:border-white/10 sm:border-none rounded-2xl sm:rounded-none z-40 shadow-2xl overflow-hidden mt-4">
+        <div className="sticky bottom-0 z-30 mt-auto shrink-0 border-t border-slate-200 bg-slate-50/95 p-4 backdrop-blur-xl dark:border-white/10 dark:bg-[#0f172a]/95">
           <button 
-            onClick={() => setShowPreview(true)} 
+            type="button"
+            onClick={openAttendanceSummary} 
             className="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl sm:rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-lg transition-all"
           >
             <CheckCircle className="w-5 h-5" />
@@ -964,78 +1004,79 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
       {/* Summary Preview Overlay */}
       <AnimatePresence>
         {showPreview && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden p-4 sm:p-6">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowPreview(false)}
-              className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
+              className="absolute inset-0 bg-slate-950/90 backdrop-blur-md"
             />
             <motion.div 
               initial={{ scale: 0.95, opacity: 0, y: 30 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 30 }}
-              className="relative w-full max-w-lg bg-[#fdfaf1] dark:bg-[#0f172a] rounded-[40px] overflow-hidden shadow-2xl border border-black/10 dark:border-white/20 max-h-[85vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+              className="relative mt-3 flex h-[calc(100dvh-4rem)] w-full max-w-lg flex-col overflow-hidden rounded-[36px] border border-black/10 bg-[#fdfaf1] shadow-2xl sm:mt-4 sm:h-[min(720px,calc(100dvh-5rem))] sm:rounded-[40px] dark:border-white/20 dark:bg-[#0f172a]"
             >
               {/* Sticky Header inside Modal */}
-              <div className="p-5 sm:p-8 bg-blue-600 flex justify-between items-center shrink-0">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white/20 rounded-[18px] flex items-center justify-center shadow-inner">
-                    <FileText className="w-6 h-6 text-slate-900 dark:text-white" />
+              <div className="flex shrink-0 items-center justify-between gap-4 bg-blue-600 p-5 sm:p-8">
+                <div className="flex min-w-0 items-center gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-white/20 shadow-inner">
+                    <FileText className="h-6 w-6 text-white" />
                   </div>
-                  <div>
-                    <h3 className="text-slate-900 dark:text-white text-lg font-black tracking-tight leading-none">Attendance Summary</h3>
-                    <p className="text-blue-100 text-[10px] uppercase font-bold tracking-widest mt-1.5 opacity-90">Verify & Finalize Record</p>
+                  <div className="min-w-0">
+                    <h3 className="truncate text-lg font-black leading-none tracking-tight text-white">Attendance Summary</h3>
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-blue-100 opacity-90">Verify & Finalize Record</p>
                   </div>
                 </div>
-                <button onClick={() => setShowPreview(false)} className="bg-white/60 dark:bg-white/10 hover:bg-white/20 text-slate-900 dark:text-white p-2.5 rounded-full transition-all active:scale-95">
-                  <X className="w-5 h-5" />
+                <button onClick={() => setShowPreview(false)} className="shrink-0 rounded-full bg-white/15 p-2.5 text-white transition-all hover:bg-white/25 active:scale-95">
+                  <X className="h-5 w-5" />
                 </button>
               </div>
 
               {/* Scrollable Content */}
-              <div className="p-5 sm:p-8 overflow-y-auto space-y-8">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white dark:bg-white/80 dark:bg-white/5 p-5 rounded-[24px] border border-slate-200 dark:border-black/5 dark:border-white/10 text-center shadow-sm">
-                    <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Present Count</p>
-                    <p className="text-3xl font-black text-emerald-600 tabular-nums">{calculateStats().present}</p>
-                  </div>
-                  <div className="bg-white dark:bg-white/80 dark:bg-white/5 p-5 rounded-[24px] border border-slate-200 dark:border-black/5 dark:border-white/10 text-center shadow-sm">
-                    <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Absent Count</p>
-                    <p className="text-3xl font-black text-rose-600 tabular-nums">{calculateStats().absent}</p>
-                  </div>
-                </div>
-
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 pb-10 sm:p-8 sm:pb-12">
                 <div className="space-y-6">
-                  {/* Present List */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-1.5 h-6 bg-emerald-500 rounded-full" />
-                      <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-500 dark:text-slate-400">Roll No: Present</h4>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+                    <div className="rounded-[24px] border border-slate-200 bg-white p-5 text-center shadow-sm dark:border-white/10 dark:bg-white/5">
+                      <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Present Count</p>
+                      <p className="text-3xl font-black tabular-nums text-emerald-600">{calculateStats().present}</p>
                     </div>
-                    <div className="bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-500/20 p-5 rounded-[24px] font-mono text-xs text-emerald-700 dark:text-emerald-400 leading-relaxed max-h-[100px] overflow-y-auto">
+                    <div className="rounded-[24px] border border-slate-200 bg-white p-5 text-center shadow-sm dark:border-white/10 dark:bg-white/5">
+                      <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Absent Count</p>
+                      <p className="text-3xl font-black tabular-nums text-rose-600">{calculateStats().absent}</p>
+                    </div>
+                  </div>
+
+                  {/* Present List */}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-5 w-1.5 rounded-full bg-emerald-500" />
+                      <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Roll No: Present</h4>
+                    </div>
+                    <div className="max-h-28 overflow-y-auto rounded-[24px] border border-emerald-100 bg-emerald-50/50 p-5 font-mono text-xs leading-relaxed text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-950/20 dark:text-emerald-400">
                       {calculateStats().presentRolls || "None"}
                     </div>
                   </div>
 
                   {/* Absent List */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-1.5 h-6 bg-rose-500 rounded-full" />
-                      <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-500 dark:text-slate-400">Roll No: Absent</h4>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-5 w-1.5 rounded-full bg-rose-500" />
+                      <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Roll No: Absent</h4>
                     </div>
-                    <div className="bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-500/20 p-5 rounded-[24px] font-mono text-xs text-rose-700 dark:text-rose-400 leading-relaxed max-h-[100px] overflow-y-auto">
+                    <div className="max-h-28 overflow-y-auto rounded-[24px] border border-rose-100 bg-rose-50/50 p-5 font-mono text-xs leading-relaxed text-rose-700 dark:border-rose-500/20 dark:bg-rose-950/20 dark:text-rose-400">
                       {calculateStats().absentRolls || "None"}
                     </div>
                   </div>
 
                   {/* Ready Message Preview */}
-                  <div className="space-y-3">
-                    <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <div className="space-y-2.5">
+                    <h4 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
                        <Copy className="w-3.5 h-3.5" /> Ready To Copy Message
                     </h4>
-                    <div className="bg-slate-100/50 dark:bg-white/80 dark:bg-white/5 border border-slate-200 dark:border-black/5 dark:border-white/10 p-5 rounded-[24px] font-mono text-[11px] text-slate-600 dark:text-slate-500 dark:text-slate-400 whitespace-pre-wrap leading-relaxed select-all">
+                    <div className="max-h-36 overflow-y-auto whitespace-pre-wrap rounded-[24px] border border-slate-200 bg-slate-100/50 p-5 font-mono text-[11px] leading-relaxed text-slate-600 select-all sm:max-h-44 dark:border-white/10 dark:bg-white/5 dark:text-slate-400">
                       Date: {format(new Date(date), "dd MMM yyyy, eeee")}
                       {(() => {
                         const s = formatTime12h(startTime);
@@ -1055,27 +1096,29 @@ function AttendanceTab({ teacherId }: { teacherId: string; key?: string }) {
               </div>
 
               {/* Sticky Footer for Buttons */}
-              <div className="p-6 sm:p-8 pt-2 bg-slate-50 dark:bg-[#0f172a] border-t border-slate-200 dark:border-white/10 shrink-0 space-y-4">
+              <div className="relative z-10 shrink-0 border-t border-slate-200 bg-slate-50 p-5 shadow-[0_-18px_32px_-28px_rgba(15,23,42,0.65)] sm:p-6 dark:border-white/10 dark:bg-[#0f172a]">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <button 
                   onClick={handleCopySummary}
-                  className="w-full flex items-center justify-center gap-3 py-4.5 rounded-[24px] font-black bg-blue-600 text-white shadow-xl hover:scale-[1.01] active:scale-95 transition-all text-sm"
+                  className="flex min-h-12 w-full items-center justify-center gap-2.5 rounded-[24px] bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-xl transition-all hover:bg-blue-500 active:scale-95"
                 >
-                  {copyStatus ? <Check className="w-5 h-5 text-emerald-400 dark:text-emerald-600" /> : <Copy className="w-5 h-5" />}
+                  {copyStatus ? <Check className="h-5 w-5 text-emerald-400" /> : <Copy className="h-5 w-5" />}
                   {copyStatus ? "Copied Successfully!" : "Copy Report Message"}
                 </button>
                 
                 <button 
                   onClick={handleSave}
                   disabled={isSaved}
-                  className={`w-full flex items-center justify-center gap-3 py-4.5 rounded-[24px] font-black shadow-xl transition-all text-sm ${
+                  className={`flex min-h-12 w-full items-center justify-center gap-2.5 rounded-[24px] px-4 py-3 text-sm font-black shadow-xl transition-all ${
                     isSaved 
-                    ? 'bg-emerald-600 text-slate-900 dark:text-white' 
+                    ? 'bg-emerald-600 text-white' 
                     : 'bg-blue-600 text-white shadow-blue-500/30 hover:bg-blue-500 active:scale-95'
                   }`}
                 >
-                  {isSaved ? <CheckCircle className="w-5 h-5" /> : <Save className="w-5 h-5" />}
+                  {isSaved ? <CheckCircle className="h-5 w-5" /> : <Save className="h-5 w-5" />}
                   {isSaved ? "Saved Successfully!" : "Confirm & Sync Record"}
                 </button>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -1090,7 +1133,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Download } from "lucide-react";
 
-function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }) {
+function AttendanceRecordsTab({ teacherId, onEditSession }: { teacherId: string; key?: string; onEditSession?: (courseId: string, date: string) => void }) {
   const { user } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
   const [drillDownCourseId, setDrillDownCourseId] = useState<string | null>(null);
@@ -1145,34 +1188,48 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
     loadCourses();
   }, [teacherId]);
 
-  useEffect(() => {
-    async function loadCourseData() {
-      if (drillDownCourseId) {
-        setLoading(true);
-        const [courseStudents, courseRecords] = await Promise.all([
-          db.getStudentsByCourse(drillDownCourseId),
-          db.getAttendanceByCourseAndDate(drillDownCourseId, "")
-        ]);
-        setStudents(courseStudents);
-        setAttendanceRecords(courseRecords);
-        // sessions would need a dedicated API if we had one, 
-        // for now we'll derive sessions from attendance records unique dates/sessions
-        const uniqueSessionsMap = new Map();
-        courseRecords.forEach(r => {
-          if (!uniqueSessionsMap.has(r.sessionId)) {
-            uniqueSessionsMap.set(r.sessionId, { id: r.sessionId, date: r.date });
-          }
-        });
-        setSessions(Array.from(uniqueSessionsMap.values()));
-        setLoading(false);
-      }
+  const loadCourseData = useCallback(async () => {
+    if (drillDownCourseId) {
+      setLoading(true);
+      const [courseStudents, courseRecords] = await Promise.all([
+        db.getStudentsByCourse(drillDownCourseId),
+        db.getAttendanceByCourseAndDate(drillDownCourseId, "")
+      ]);
+      const sortedRecords = [...courseRecords].sort((a, b) => a.date.localeCompare(b.date));
+      setStudents(courseStudents);
+      setAttendanceRecords(sortedRecords);
+      const uniqueSessionsMap = new Map();
+      sortedRecords.forEach(r => {
+        if (!uniqueSessionsMap.has(r.sessionId)) {
+          uniqueSessionsMap.set(r.sessionId, { id: r.sessionId, date: r.date });
+        }
+      });
+      const orderedSessions = Array.from(uniqueSessionsMap.values())
+        .sort((a, b) => a.date.localeCompare(b.date));
+      setSessions(orderedSessions);
+      setLoading(false);
     }
-    loadCourseData();
   }, [drillDownCourseId]);
+
+  useEffect(() => {
+    loadCourseData();
+  }, [loadCourseData]);
+
+  useEffect(() => {
+    const refresh = (event: Event) => {
+      const updatedCourseId = (event as CustomEvent<{ courseId?: string }>).detail?.courseId;
+      if (!updatedCourseId || updatedCourseId === drillDownCourseId) {
+        loadCourseData();
+      }
+    };
+    window.addEventListener("attendance-updated", refresh);
+    return () => window.removeEventListener("attendance-updated", refresh);
+  }, [drillDownCourseId, loadCourseData]);
 
   const handleDownloadPDF = (course: Course, monthData?: { month: string, sessions: any[] }) => {
     // sessions and students are now in state
-    const allSessionsInSet = monthData ? monthData.sessions : sessions;
+    const allSessionsInSet = [...(monthData ? monthData.sessions : sessions)]
+      .sort((a, b) => a.date.localeCompare(b.date));
     
     if (allSessionsInSet.length === 0) {
       alert("No attendance records found for this period.");
@@ -1180,13 +1237,14 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
     }
 
     const doc = new jsPDF('l', 'mm', 'a4');
-    const maxDatesPerPage = 12;
+    const maxDatesPerPage = 15;
     // We'll assume the currently logged in user is the teacher or fetch if needed
     // For now, let's use the current user's name
     const teacherDisplayName = user?.name || "";
 
     // Helper to draw common header on every page
-    const drawHeader = (pageNumber: number) => {
+    const drawHeader = () => {
+      const pageWidth = doc.internal.pageSize.getWidth();
       doc.setFontSize(20);
       doc.setTextColor(30, 41, 59);
       doc.setFont("helvetica", "bold");
@@ -1199,7 +1257,7 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
       
       doc.setDrawColor(203, 213, 225);
       doc.setLineWidth(0.5);
-      doc.line(14, 25, 283, 25);
+      doc.line(14, 25, pageWidth - 14, 25);
       
       // Course Details Grid
       doc.setFontSize(9);
@@ -1271,13 +1329,15 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
     // Helper to draw common footer
     const drawFooter = () => {
       const pageCount = (doc as any).internal.getNumberOfPages();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(148, 163, 184);
-        doc.text(`System generated report - CDLU Attendance Hub`, 14, 203);
-        doc.text(`Page ${i} of ${pageCount}`, 260, 203);
-        doc.line(14, 198, 283, 198);
+        doc.line(14, pageHeight - 12, pageWidth - 14, pageHeight - 12);
+        doc.text(`System generated report - CDLU Attendance Hub`, 14, pageHeight - 7);
+        doc.text(`Page ${i} of ${pageCount}`, pageWidth - 38, pageHeight - 7);
       }
     };
 
@@ -1289,11 +1349,12 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
 
     sessionChunks.forEach((chunk, pageIdx) => {
       if (pageIdx > 0) doc.addPage();
-      drawHeader(pageIdx + 1);
 
-      // Table Header: Fixed Cols + Date Cols + Summary Cols (only on last page ideally, or all pages)
+      const isLastPage = pageIdx === sessionChunks.length - 1;
       const dateHeaders = chunk.map(s => format(new Date(s.date), "dd/MM"));
-      const tableHeader = ["Roll No", "Student Name", ...dateHeaders, "P", "A", "%"];
+      const tableHeader = isLastPage
+        ? ["Roll No", "Student Name", ...dateHeaders, "P", "A", "%"]
+        : ["Roll No", "Student Name", ...dateHeaders];
 
       // Table Data
       const tableRows = students.map(student => {
@@ -1314,10 +1375,16 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
           return r ? r.status : "-";
         });
 
-        return [
+        const baseRow = [
           student.rollNumber || "-",
           student.name,
-          ...sessionStatus,
+          ...sessionStatus
+        ];
+
+        if (!isLastPage) return baseRow;
+
+        return [
+          ...baseRow,
           totalP.toString(),
           totalA.toString(),
           allSessionsInSet.length > 0 ? `${Math.round((totalP / allSessionsInSet.length) * 100)}%` : "0%"
@@ -1325,18 +1392,28 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
       });
 
       // Adaptive Font Size
-      let fontSize = 9;
-      if (chunk.length > 8) fontSize = 8;
+      let fontSize = 8;
       if (chunk.length > 12) fontSize = 7;
+
+      const dateColumnStyles = chunk.reduce((styles, _session, index) => {
+        styles[index + 2] = { cellWidth: isLastPage ? 11 : 12, halign: 'center' };
+        return styles;
+      }, {} as Record<number, any>);
+
+      const summaryColumnStyles = isLastPage ? {
+        [tableHeader.length - 3]: { cellWidth: 10, fontStyle: 'bold', fillColor: [240, 253, 244], textColor: [21, 128, 61] },
+        [tableHeader.length - 2]: { cellWidth: 10, fontStyle: 'bold', fillColor: [255, 241, 242], textColor: [190, 18, 60] },
+        [tableHeader.length - 1]: { cellWidth: 12, fontStyle: 'bold', fillColor: [239, 246, 255], textColor: [29, 78, 216] }
+      } : {};
 
       autoTable(doc, {
         head: [tableHeader],
         body: tableRows,
-        startY: 50,
+        startY: 52,
         theme: 'grid',
         styles: { 
           fontSize: fontSize,
-          cellPadding: 2,
+          cellPadding: 1.6,
           valign: 'middle',
           halign: 'center',
           font: 'helvetica',
@@ -1350,15 +1427,18 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
           halign: 'center'
         },
         columnStyles: {
-          0: { halign: 'left', fontStyle: 'bold', cellWidth: 20 },
-          1: { halign: 'left', fontStyle: 'bold', cellWidth: 40 },
-          // The summary columns at the end
-          [tableHeader.length - 3]: { fontStyle: 'bold', fillColor: [240, 253, 244], textColor: [21, 128, 61] },
-          [tableHeader.length - 2]: { fontStyle: 'bold', fillColor: [255, 241, 242], textColor: [190, 18, 60] },
-          [tableHeader.length - 1]: { fontStyle: 'bold', fillColor: [239, 246, 255], textColor: [29, 78, 216] }
+          0: { halign: 'left', fontStyle: 'bold', cellWidth: 22 },
+          1: { halign: 'left', fontStyle: 'bold', cellWidth: 48 },
+          ...dateColumnStyles,
+          ...summaryColumnStyles
         },
         alternateRowStyles: { fillColor: [252, 252, 252] },
-        margin: { left: 14, right: 14 }
+        margin: { top: 52, left: 14, right: 14, bottom: 18 },
+        pageBreak: 'auto',
+        rowPageBreak: 'avoid',
+        didDrawPage: () => {
+          drawHeader();
+        }
       });
     });
 
@@ -1426,12 +1506,29 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
     });
 
     const monthsWithData = Array.from(new Set(sessions.map(s => format(new Date(s.date), "MMMM yyyy"))));
+    const monthlyAnalytics = monthsWithData.map(month => {
+      const monthSessions = sessions.filter(s => format(new Date(s.date), "MMMM yyyy") === month);
+      const monthRecords = attendanceRecords.filter(r => monthSessions.some(s => s.id === r.sessionId));
+      const present = monthRecords.filter(r => r.status === "P").length;
+      const totalPossible = students.length * monthSessions.length;
+      return {
+        month,
+        lectures: monthSessions.length,
+        percentage: totalPossible > 0 ? Math.round((present / totalPossible) * 100) : 0
+      };
+    });
+    const lowAttendanceStudents = students.map(student => {
+      const studentRecs = attendanceRecords.filter(r => r.studentId === student.id);
+      const present = sessions.filter(s => studentRecs.some(r => r.sessionId === s.id && r.status === "P")).length;
+      const percentage = sessions.length > 0 ? Math.round((present / sessions.length) * 100) : 0;
+      return { student, percentage };
+    }).filter(item => item.percentage < 75);
 
     return (
       <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-6 flex flex-col h-full overflow-hidden">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <button onClick={() => { setDrillDownCourseId(null); setSearchQuery(""); }} className="text-slate-500 hover:text-slate-900 dark:text-slate-500 dark:text-slate-400 dark:hover:text-slate-900 dark:text-white flex items-center gap-1 mb-2 text-sm font-bold transition-colors">
+            <button onClick={() => { setDrillDownCourseId(null); setSearchQuery(""); }} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:text-white dark:hover:text-white flex items-center gap-1 mb-2 text-sm font-bold transition-colors">
               <ChevronRight className="w-4 h-4 rotate-180" /> Back to List
             </button>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">{course.name} <span className="text-blue-600 dark:text-blue-400">Records</span></h2>
@@ -1454,7 +1551,7 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
 
         {/* Quick Month Reports Bar */}
         {monthsWithData.length > 0 && (
-          <div className="bg-white dark:bg-slate-300 dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-black/5 dark:border-white/10 overflow-x-auto scrollbar-none flex gap-2">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-white/10 overflow-x-auto scrollbar-none flex gap-2">
             <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 self-center mr-2 shrink-0">Monthly Reports:</span>
             {monthsWithData.map((m: any) => (
               <button 
@@ -1463,7 +1560,7 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
                    const sessionsInMonth = sessions.filter(s => format(new Date(s.date), "MMMM yyyy") === m);
                    handleDownloadPDF(course, { month: m as string, sessions: sessionsInMonth });
                 }}
-                className="whitespace-nowrap px-4 py-2 bg-slate-100 dark:bg-white/80 dark:bg-white/5 hover:bg-blue-50 dark:hover:bg-blue-500/20 text-slate-700 dark:text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-all border border-transparent hover:border-blue-200 dark:hover:border-blue-800"
+                className="whitespace-nowrap px-4 py-2 bg-slate-100 dark:bg-white/5 hover:bg-blue-50 dark:hover:bg-blue-500/20 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-all border border-transparent hover:border-blue-200 dark:hover:border-blue-800"
               >
                 {m}
               </button>
@@ -1471,8 +1568,49 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
           </div>
         )}
 
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-white/10">
+            <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3">Monthly Analytics</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {monthlyAnalytics.map(item => (
+                <div key={item.month} className="rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-white/10 p-3">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <span className="text-sm font-black text-slate-900 dark:text-white">{item.month}</span>
+                    <span className={`text-sm font-black ${item.percentage >= 75 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>{item.percentage}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                    <div className={`h-full rounded-full ${item.percentage >= 75 ? "bg-emerald-500" : "bg-rose-500"}`} style={{ width: `${item.percentage}%` }} />
+                  </div>
+                  <p className="mt-2 text-[10px] font-bold text-slate-500 dark:text-slate-400">{item.lectures} lectures</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-white/10">
+            <h3 className="text-[11px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 mb-3">Low Attendance Warning</h3>
+            {lowAttendanceStudents.length === 0 ? (
+              <div className="rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 p-4 text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                All students are at or above 75%.
+              </div>
+            ) : (
+              <div className="max-h-36 overflow-y-auto space-y-2">
+                {lowAttendanceStudents.map(({ student, percentage }) => (
+                  <div key={student.id} className="flex items-center justify-between gap-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-slate-900 dark:text-white">{student.name}</p>
+                      <p className="text-[10px] font-mono text-slate-500 dark:text-slate-400">{student.rollNumber || "No Roll"}</p>
+                    </div>
+                    <span className="shrink-0 text-sm font-black text-rose-600 dark:text-rose-400">{percentage}%</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Filters */}
-        <div className="flex flex-wrap gap-4 bg-slate-50 dark:bg-slate-300 dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-black/5 dark:border-white/10">
+        <div className="flex flex-wrap gap-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-white/10">
           <div className="flex-1 min-w-[200px] relative">
              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 dark:text-slate-400" />
              <input 
@@ -1528,11 +1666,11 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
                     className={`group relative flex items-center p-4 rounded-2xl shadow-sm border transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]
                       ${isSelected 
                         ? 'bg-blue-600 border-blue-600 text-slate-900 dark:text-white shadow-blue-500/20' 
-                        : 'bg-white dark:bg-slate-300 dark:bg-slate-800 border-slate-100 dark:border-black/5 dark:border-white/5 text-slate-900 dark:text-white'
+                        : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-white/5 text-slate-900 dark:text-white'
                       }`}
                   >
                     <div className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-full ${isSelected ? 'bg-white' : (percentage >= 75 ? 'bg-emerald-500' : 'bg-blue-500')}`} />
-                    <div className={`flex flex-col items-center justify-center min-w-[50px] border-r pr-4 mr-4 ${isSelected ? 'border-black/10 dark:border-white/20' : 'border-slate-100 dark:border-black/5 dark:border-white/5'}`}>
+                    <div className={`flex flex-col items-center justify-center min-w-[50px] border-r pr-4 mr-4 ${isSelected ? 'border-black/10 dark:border-white/20' : 'border-slate-100 dark:border-white/5'}`}>
                       <span className={`text-lg font-black leading-none ${isSelected ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-white'}`}>{format(sessionDate, "dd")}</span>
                       <span className={`text-[10px] font-bold mt-0.5 ${isSelected ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'}`}>{format(sessionDate, "MMM")}</span>
                     </div>
@@ -1571,8 +1709,24 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
                         <span className={`text-[10px] font-bold ${isSelected ? 'text-blue-50/80' : 'text-slate-500'}`}>{present}/{total} Present</span>
                       </div>
                     </div>
-                    <div className={`px-3 py-1 rounded-lg text-[10px] font-black ${isSelected ? 'bg-white/20 text-slate-900 dark:text-white' : (percentage >= 75 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600')}`}>
-                      {percentage}%
+                    <div className="ml-auto flex items-center gap-2">
+                      <div className={`px-3 py-1 rounded-lg text-[10px] font-black ${isSelected ? 'bg-white/20 text-slate-900 dark:text-white' : (percentage >= 75 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600')}`}>
+                        {percentage}%
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditSession?.(course.id, session.date);
+                        }}
+                        className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all ${
+                          isSelected
+                            ? "bg-white text-blue-600 hover:bg-blue-50"
+                            : "bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/20"
+                        }`}
+                      >
+                        Edit
+                      </button>
                     </div>
                   </div>
                 );
@@ -1582,7 +1736,7 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
           </div>
 
           {/* Table Wrapper */}
-          <div className="flex-1 overflow-hidden bg-white dark:bg-slate-950 border border-slate-200 dark:border-black/5 dark:border-white/10 rounded-3xl shadow-xl flex flex-col relative">
+          <div className="flex-1 overflow-hidden bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xl flex flex-col relative">
             <div className="p-4 bg-blue-600 text-white rounded-t-3xl flex justify-between items-center whitespace-nowrap">
                <h3 className="font-black uppercase tracking-widest text-[10px]">
                  {selectedSessionId ? `Record for ${sessions.find(s => s.id === selectedSessionId)?.date}` : "Student wise Record"}
@@ -1594,18 +1748,18 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
           <div className="overflow-auto max-h-full scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
             <table className="w-full text-left border-separate border-spacing-0 text-xs sm:text-sm">
               <thead className="sticky top-0 z-30">
-                <tr className="bg-slate-50 dark:bg-slate-100/95 dark:bg-slate-900/95 backdrop-blur-sm">
-                  <th className="p-4 sm:p-5 font-black uppercase tracking-widest whitespace-nowrap sticky left-0 z-40 bg-slate-50 dark:bg-slate-900 border-r border-b border-slate-200 dark:border-black/5 dark:border-white/10 shadow-[2px_0_8px_rgba(0,0,0,0.03)] min-w-[140px] sm:min-w-[180px]">
+                <tr className="bg-slate-50 dark:bg-slate-900/95 backdrop-blur-sm">
+                  <th className="p-4 sm:p-5 font-black uppercase tracking-widest whitespace-nowrap sticky left-0 z-40 bg-slate-50 dark:bg-slate-900 border-r border-b border-slate-200 dark:border-white/10 shadow-[2px_0_8px_rgba(0,0,0,0.03)] min-w-[140px] sm:min-w-[180px]">
                     Student Details
                   </th>
                   {sessions.filter(s => !selectedSessionId || s.id === selectedSessionId).map(s => (
-                    <th key={s.id} className="p-3 sm:p-4 font-black uppercase tracking-widest whitespace-nowrap text-center border-r border-b border-slate-200 dark:border-black/5 dark:border-white/5 min-w-[60px] sm:min-w-[75px]">
+                    <th key={s.id} className="p-3 sm:p-4 font-black uppercase tracking-widest whitespace-nowrap text-center border-r border-b border-slate-200 dark:border-white/5 min-w-[60px] sm:min-w-[75px]">
                       <span className="block text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-tighter mb-0.5 leading-none">{s.date.split("-")[0]}</span>
                       <span className="text-blue-600 dark:text-blue-400">{s.date.substring(5)}</span>
                     </th>
                   ))}
-                  <th className={`${selectedSessionId ? 'hidden' : 'hidden xl:table-cell'} p-4 sm:p-5 font-black uppercase tracking-widest whitespace-nowrap text-center bg-white dark:bg-slate-300 dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 sticky right-[120px] sm:right-[150px] z-20 border-l border-b border-slate-200 dark:border-black/5 dark:border-white/10 min-w-[60px] sm:min-w-[75px]`}>P</th>
-                  <th className={`${selectedSessionId ? 'hidden' : 'hidden xl:table-cell'} p-4 sm:p-5 font-black uppercase tracking-widest whitespace-nowrap text-center bg-white dark:bg-slate-300 dark:bg-slate-800 text-rose-600 dark:text-rose-400 sticky right-12 sm:right-16 z-20 border-l border-b border-slate-200 dark:border-black/5 dark:border-white/10 min-w-[60px] sm:min-w-[75px]`}>A</th>
+                  <th className={`${selectedSessionId ? 'hidden' : 'hidden xl:table-cell'} p-4 sm:p-5 font-black uppercase tracking-widest whitespace-nowrap text-center bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 sticky right-[120px] sm:right-[150px] z-20 border-l border-b border-slate-200 dark:border-white/10 min-w-[60px] sm:min-w-[75px]`}>P</th>
+                  <th className={`${selectedSessionId ? 'hidden' : 'hidden xl:table-cell'} p-4 sm:p-5 font-black uppercase tracking-widest whitespace-nowrap text-center bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 sticky right-12 sm:right-16 z-20 border-l border-b border-slate-200 dark:border-white/10 min-w-[60px] sm:min-w-[75px]`}>A</th>
                   <th className={`p-4 sm:p-5 font-black uppercase tracking-widest whitespace-nowrap text-center bg-blue-600 text-white sticky right-0 z-20 border-b border-blue-700 min-w-[60px] sm:min-w-[85px] shadow-[-2px_0_8px_rgba(37,99,235,0.2)] font-black ${selectedSessionId ? 'hidden' : ''}`}>%</th>
                 </tr>
               </thead>
@@ -1623,32 +1777,32 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
                   });
                   
                   return (
-                    <tr key={student.id} className="group hover:bg-slate-50 dark:hover:bg-white/80 dark:bg-white/5 transition-all duration-150">
-                      <td className="p-4 sm:p-5 sticky left-0 z-20 bg-white dark:bg-slate-950 group-hover:bg-slate-50 dark:group-hover:bg-slate-900 border-r border-b border-slate-200 dark:border-black/5 dark:border-white/10 shadow-[2px_0_8px_rgba(0,0,0,0.02)] transition-colors">
+                    <tr key={student.id} className="group hover:bg-slate-50 dark:bg-white/5 dark:hover:bg-white/10 transition-all duration-150">
+                      <td className="p-4 sm:p-5 sticky left-0 z-20 bg-white dark:bg-slate-950 group-hover:bg-slate-50 dark:group-hover:bg-slate-900 border-r border-b border-slate-200 dark:border-white/10 shadow-[2px_0_8px_rgba(0,0,0,0.02)] transition-colors">
                         <div className="flex flex-col">
-                          <span className="font-black text-slate-800 dark:text-slate-900 dark:text-white whitespace-nowrap tracking-tight group-hover:text-blue-600 transition-colors">{student.name}</span>
+                          <span className="font-black text-slate-800 dark:text-white whitespace-nowrap tracking-tight group-hover:text-blue-600 dark:group-hover:text-blue-300 transition-colors">{student.name}</span>
                           <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tighter">{student.rollNumber}</span>
                         </div>
                       </td>
                       {sessions.filter(s => !selectedSessionId || s.id === selectedSessionId).map(s => {
                         const r = studentRecs.find(rec => rec.sessionId === s.id);
                         return (
-                          <td key={s.id} className="p-3 sm:p-4 text-center border-r border-b border-slate-100 dark:border-black/5 dark:border-white/5 group-hover:bg-black/[0.01] dark:group-hover:bg-white/[0.01]">
+                          <td key={s.id} className="p-3 sm:p-4 text-center border-r border-b border-slate-100 dark:border-white/5 group-hover:bg-black/[0.01] dark:group-hover:bg-white/[0.01]">
                             {r?.status === 'P' ? (
                               <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-black text-[10px]">P</span>
                             ) : r?.status === 'A' ? (
                               <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-black text-[10px]">A</span>
                             ) : (
-                              <span className="text-slate-700 dark:text-slate-200 dark:text-slate-800">-</span>
+                              <span className="text-slate-700 dark:text-slate-300">-</span>
                             )}
                           </td>
                         )
                       })}
                       {!selectedSessionId && (
                         <>
-                          <td className="hidden xl:table-cell p-4 sm:p-5 text-center font-black text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-950 group-hover:bg-slate-50 dark:group-hover:bg-slate-900 sticky right-[120px] sm:right-[150px] z-10 border-l border-b border-slate-200 dark:border-black/5 dark:border-white/10 shadow-[-2px_0_5px_rgba(0,0,0,0.01)] transition-colors">{pCount}</td>
-                          <td className="hidden xl:table-cell p-4 sm:p-5 text-center font-black text-rose-600 dark:text-rose-400 bg-white dark:bg-slate-950 group-hover:bg-slate-50 dark:group-hover:bg-slate-900 sticky right-12 sm:right-16 z-10 border-l border-b border-slate-200 dark:border-black/5 dark:border-white/10 shadow-[-2px_0_5px_rgba(0,0,0,0.01)] transition-colors">{aCount}</td>
-                          <td className="p-4 sm:p-5 text-center bg-blue-50 dark:bg-blue-900/10 text-blue-700 dark:text-blue-300 sticky right-0 z-10 border-l border-b border-slate-200 dark:border-black/5 dark:border-white/10 font-black shadow-[-2px_0_8px_rgba(0,0,0,0.05)] transition-colors">
+                          <td className="hidden xl:table-cell p-4 sm:p-5 text-center font-black text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-950 group-hover:bg-slate-50 dark:group-hover:bg-slate-900 sticky right-[120px] sm:right-[150px] z-10 border-l border-b border-slate-200 dark:border-white/10 shadow-[-2px_0_5px_rgba(0,0,0,0.01)] transition-colors">{pCount}</td>
+                          <td className="hidden xl:table-cell p-4 sm:p-5 text-center font-black text-rose-600 dark:text-rose-400 bg-white dark:bg-slate-950 group-hover:bg-slate-50 dark:group-hover:bg-slate-900 sticky right-12 sm:right-16 z-10 border-l border-b border-slate-200 dark:border-white/10 shadow-[-2px_0_5px_rgba(0,0,0,0.01)] transition-colors">{aCount}</td>
+                          <td className="p-4 sm:p-5 text-center bg-blue-50 dark:bg-blue-900/10 text-blue-700 dark:text-blue-300 sticky right-0 z-10 border-l border-b border-slate-200 dark:border-white/10 font-black shadow-[-2px_0_8px_rgba(0,0,0,0.05)] transition-colors">
                             {sessions.length > 0 ? (
                               <div className="flex flex-col items-center">
                                 <span className={`text-sm sm:text-base ${Math.round((pCount / sessions.length) * 100) < 75 ? 'text-rose-600 dark:text-rose-400' : ''}`}>
@@ -1682,7 +1836,7 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
               placeholder="Filter courses..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-300 dark:bg-slate-800 border border-slate-200 dark:border-black/5 dark:border-white/10 py-2 pl-10 pr-4 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 py-2 pl-10 pr-4 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
             />
           </div>
        </div>
@@ -1715,7 +1869,7 @@ function AttendanceRecordsTab({ teacherId }: { teacherId: string; key?: string }
                    </div>
                 </div>
 
-                <div className="mt-6 pt-5 border-t border-slate-100 dark:border-black/5 dark:border-white/5">
+                <div className="mt-6 pt-5 border-t border-slate-100 dark:border-white/5">
                    <div className="flex justify-between items-end mb-2">
                       <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-widest">Avg Attendance</span>
                       <span className={`text-2xl font-black ${stats.avg >= 75 ? 'text-emerald-600' : 'text-rose-600'}`}>{stats.avg}%</span>
@@ -1837,7 +1991,7 @@ function ProfileTab({ user }: { user: User; key?: string }) {
           {formData.name.charAt(0)}
         </div>
         <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Account <span className="text-blue-600">Settings</span></h2>
-        <p className="text-slate-500 dark:text-slate-500 dark:text-slate-400 font-bold">Manage your profile and public information</p>
+        <p className="text-slate-500 dark:text-slate-400 font-bold">Manage your profile and public information</p>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-white/10 rounded-[32px] p-6 sm:p-10 shadow-xl shadow-slate-200/50 dark:shadow-none space-y-6">
@@ -1858,7 +2012,7 @@ function ProfileTab({ user }: { user: User; key?: string }) {
             <select 
               value={formData.title}
               onChange={e => setFormData({ ...formData, title: e.target.value })}
-              className="w-full bg-slate-50 dark:bg-slate-300 dark:bg-slate-800 border border-slate-200 dark:border-black/5 dark:border-white/5 rounded-2xl py-3.5 px-4 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/5 rounded-2xl py-3.5 px-4 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none"
             >
               <option value="Dr. ">Dr.</option>
               <option value="Prof. ">Prof.</option>
@@ -1878,7 +2032,7 @@ function ProfileTab({ user }: { user: User; key?: string }) {
                 type="text" 
                 value={formData.name}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-slate-300 dark:bg-slate-800 border border-slate-200 dark:border-black/5 dark:border-white/5 rounded-2xl py-3.5 pl-12 pr-4 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/5 rounded-2xl py-3.5 pl-12 pr-4 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                 placeholder="Your full name"
               />
             </div>
@@ -1892,7 +2046,7 @@ function ProfileTab({ user }: { user: User; key?: string }) {
                 type="text" 
                 value={formData.username}
                 onChange={e => setFormData({ ...formData, username: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-slate-300 dark:bg-slate-800 border border-slate-200 dark:border-black/5 dark:border-white/5 rounded-2xl py-3.5 pl-10 pr-4 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/5 rounded-2xl py-3.5 pl-10 pr-4 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                 placeholder="username"
               />
             </div>
@@ -1904,7 +2058,7 @@ function ProfileTab({ user }: { user: User; key?: string }) {
               type="tel" 
               value={formData.phone}
               onChange={e => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full bg-slate-50 dark:bg-slate-300 dark:bg-slate-800 border border-slate-200 dark:border-black/5 dark:border-white/5 rounded-2xl py-3.5 px-4 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/5 rounded-2xl py-3.5 px-4 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all"
               placeholder="+91 ..."
             />
           </div>
@@ -1915,7 +2069,7 @@ function ProfileTab({ user }: { user: User; key?: string }) {
               disabled
               type="email" 
               value={user.email}
-              className="w-full bg-slate-100 dark:bg-slate-300 dark:bg-slate-800/50 border border-slate-200 dark:border-black/5 dark:border-white/5 rounded-2xl py-3.5 px-4 text-slate-500 dark:text-slate-500 font-bold cursor-not-allowed"
+              className="w-full bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-white/5 rounded-2xl py-3.5 px-4 text-slate-500 dark:text-slate-500 font-bold cursor-not-allowed"
             />
           </div>
 
@@ -1928,7 +2082,7 @@ function ProfileTab({ user }: { user: User; key?: string }) {
                 type={showPassword ? "text" : "password"} 
                 value={formData.password}
                 onChange={e => setFormData({ ...formData, password: e.target.value })}
-                className="w-full bg-slate-50 dark:bg-slate-300 dark:bg-slate-800 border border-slate-200 dark:border-black/5 dark:border-white/5 rounded-2xl py-3.5 pl-12 pr-12 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/5 rounded-2xl py-3.5 pl-12 pr-12 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono"
                 placeholder="Password"
               />
               <button 
@@ -1950,7 +2104,7 @@ function ProfileTab({ user }: { user: User; key?: string }) {
           {isSaving ? "Syncing..." : "Update Profile"}
         </button>
 
-        <div className="pt-6 border-t border-slate-100 dark:border-black/5 dark:border-white/5">
+        <div className="pt-6 border-t border-slate-100 dark:border-white/5">
           <p className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-4 tracking-widest">Advanced Options</p>
           
           <button 

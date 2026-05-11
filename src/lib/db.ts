@@ -54,7 +54,12 @@ export interface AttendanceRecord {
 // API-based Database client
 class Database {
   private async fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
-    const response = await fetch(path, {
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "";
+    const requestUrl = apiBaseUrl && path.startsWith("/api")
+      ? `${apiBaseUrl}${path}`
+      : path;
+
+    const response = await fetch(requestUrl, {
       ...options,
       headers: {
         "Content-Type": "application/json",
@@ -159,11 +164,12 @@ class Database {
     teacherId: string, 
     date: string, 
     studentStatus: { studentId: string, status: "P" | "A" | "L" }[],
-    metadata?: { startTime?: string, endTime?: string, roomNo?: string }
+    metadata?: { startTime?: string, endTime?: string, roomNo?: string },
+    allowUpdate = false
   ): Promise<void> {
     await this.fetchApi("/api/attendance/mark", {
       method: "POST",
-      body: JSON.stringify({ courseId, teacherId, date, studentStatus, metadata }),
+      body: JSON.stringify({ courseId, teacherId, date, studentStatus, metadata, allowUpdate }),
     });
   }
 }
